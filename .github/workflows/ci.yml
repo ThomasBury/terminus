@@ -67,7 +67,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: your-dockerhub-username/terminus
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/terminus
           tags: |
             type=sha,format=short
             type=raw,value=latest
@@ -87,3 +87,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+          
