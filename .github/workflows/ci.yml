@@ -36,8 +36,8 @@ jobs:
           restore-keys: |
             uv-${{ runner.os }}-
 
-      - name: 📦 Install dependencies (dev)
-        run: uv sync --dev
+      - name: 📦 Install dependencies (lint)
+        run: uv sync --lint
 
       - name: ✨ Lint with Ruff
         run: |
