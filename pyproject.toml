@@ -1,0 +1,40 @@
+[project]
+name = "terminus"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Thomas Bury", email = "thomas.bury@investsuite.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.115.12",
+    "instructor>=1.7.7",
+    "litellm>=1.63.14",
+    "loguru>=0.7.3",
+    "openai>=1.68.2",
+    "pydantic>=2.10.6",
+    "pydantic-settings>=2.8.1",
+    "python-dotenv>=1.0.1",
+    "sqlalchemy>=2.0.39",
+    "uvicorn>=0.34.0",
+    "wikipedia>=1.4.0",
+]
+
+[project.scripts]
+terminus = "terminus:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/terminus"]
+
+[dependency-groups]
+dev = [
+    "pyragify>=0.1.0",
+]
+lint = [
+    "ruff>=0.11.2",
+]

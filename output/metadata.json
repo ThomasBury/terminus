@@ -1,0 +1,170 @@
+{
+    "processed_files": [
+        {
+            "path": "terminus/__init__.py",
+            "chunks": 1,
+            "size": 54,
+            "lines": 2,
+            "words": 0
+        },
+        {
+            "path": "terminus/schemas.py",
+            "chunks": 10,
+            "size": 4608,
+            "lines": 142,
+            "words": 0
+        },
+        {
+            "path": "terminus/models.py",
+            "chunks": 2,
+            "size": 1846,
+            "lines": 60,
+            "words": 0
+        },
+        {
+            "path": "terminus/routers/home.py",
+            "chunks": 0,
+            "size": 1724,
+            "lines": 41,
+            "words": 0
+        }
+    ],
+    "skipped_files": [
+        {
+            "path": "/home/bsatom/Documents/terminus/src/.DS_Store",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0x86 in position 23: invalid start byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/prompts.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/database.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/config.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/app.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/utils.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/llm_service.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/wikipedia_service.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/terminus_service.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/candidate_terminus_service.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/__pycache__/candidate_lexicon_service.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/__pycache__/terminus_service.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/__pycache__/llm_service.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/__pycache__/candidate_terminus_service.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/__pycache__/lexicon_service.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/services/__pycache__/wikipedia_service.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/database.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/schemas.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/app.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/utils.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/config.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/models.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/wikipedia.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/prompts.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/__pycache__/__init__.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/routers/terms.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/routers/candidate.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/routers/definition.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/routers/__pycache__/candidate.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/routers/__pycache__/definition.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/routers/__pycache__/ui.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/routers/__pycache__/terms.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        },
+        {
+            "path": "/home/bsatom/Documents/terminus/src/terminus/routers/__pycache__/home.cpython-313.pyc",
+            "reason": "Error processing file: 'utf-8' codec can't decode byte 0xf3 in position 0: invalid continuation byte"
+        }
+    ],
+    "summary": {
+        "total_files_processed": 4,
+        "total_words": 0
+    }
+}

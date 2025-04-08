@@ -1,0 +1,58 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Local logs
+logs/
+*.log
+
+# Test / coverage / profiling
+.coverage
+.cache/
+pytest_cache/
+
+# Virtual environments
+.env
+.venv/
+venv/
+
+# Local development and secrets
+.env.*
+.envrc
+secrets.env
+
+# uv / Astral-specific
+uv.lock
+pip-log.txt
+pip-wheel-metadata/
+__pypackages__/
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# SQLite volume-based DBs
+volumes/
+*.db
+
+# Docker
+Dockerfile.bak
+*.swp
+.dockerignore
+
+# Editor config
+.vscode/
+.idea/
+*.iml
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Static & templates cache (optional, if you precompile or cache them)
+*.jinja2c
+__templating_cache__/

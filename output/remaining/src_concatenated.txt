@@ -1,0 +1,1914 @@
+Function: main
+Code:
+def main() -> None:
+    print("Hello from terminus!")
+
+Function: get_session
+Code:
+def get_session():
+    """
+    Dependency to provide a SQLAlchemy session to FastAPI endpoints.
+
+    This function is used as a dependency in FastAPI endpoints to provide a
+    SQLAlchemy session. It ensures that the session is properly closed after
+    the request is processed.
+
+    Yields
+    ------
+    session : Session
+        A SQLAlchemy session object.
+    """
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+Function: create_all_tables
+Code:
+def create_all_tables():
+    """
+    For development only – ensures all tables are created.
+
+    This function creates all tables defined in the models if they do not
+    already exist. It is intended for use during development to set up the
+    database schema.
+
+    Notes
+    -----
+    This function should not be used in a production environment as it may
+    overwrite existing data.
+    """
+    Base.metadata.create_all(bind=engine)
+
+Class: FollowUp
+Code:
+class FollowUp(BaseModel):
+    """
+    You are an assistant helping users understand user-defined topic terms by breaking them down.
+    For each key term, generate a follow-up question and optionally provide a brief definition.
+    """
+
+    term: str = Field(
+        ..., description="The follow-up term related to the original query."
+    )
+    question: str = Field(
+        ...,
+        description="A concise question that can help the user explore the follow-up term appearing in the definition of the original query.",
+    )
+    definition: str = Field(
+        ..., description="A brief definition of the follow-up term."
+    )
+
+Class: terminusAnswer
+Code:
+class terminusAnswer(BaseModel):
+    """
+    You return a clear user-defined topic term definition along with related follow-up questions to deepen understanding.
+    """
+
+    term: str = Field(
+        ..., description=f"The main {settings.topic_domain} term being defined."
+    )
+    definition: str = Field(
+        ..., description="A clear, concise, and factual definition of the term."
+    )
+    follow_ups: List[FollowUp] = Field(
+        ..., description="A list of up to 3 follow-up questions related to sub-terms."
+    )
+
+Class: terminusEntryCreate
+Code:
+class terminusEntryCreate(BaseModel):
+    """
+    Represents user input to create a new terminus entry.
+    The user may provide a definition, or the system will fetch one automatically.
+    """
+
+    term: str = Field(..., description=f"The {settings.topic_domain} term to define.")
+    definition: str = Field(
+        ..., description="User-provided definition. If not given, use Wikipedia or LLM."
+    )
+
+Class: CandidateterminusAnswer
+Code:
+class CandidateterminusAnswer(BaseModel):
+    """
+    Represents a generated terminus entry that is pending review before becoming official.
+    """
+
+    term: str = Field(..., description="The candidate term being evaluated.")
+    definition: str = Field(
+        ..., description="Auto-generated or Wikipedia-based definition of the term."
+    )
+    follow_ups: List[FollowUp] = Field(
+        ..., description="List of follow-up questions generated for this term."
+    )
+    status: str = Field(
+        ..., description="Validation status such as 'pending' or 'under_review'."
+    )
+
+    class Config:
+        from_attributes = True
+
+Class: CandidateValidation
+Code:
+class CandidateValidation(BaseModel):
+    """
+    Represents a review decision for a candidate term.
+    Use this to approve or reject whether a generated entry should be moved to the official terminus.
+    """
+
+    term: str = Field(..., description="The candidate term to validate.")
+    approve: bool = Field(
+        ...,
+        description="Set to true to promote the candidate to the official terminus.",
+    )
+    reason: str = Field(..., description="Concise reason for the decision.")
+
+Class: ExtractedTerm
+Code:
+class ExtractedTerm(BaseModel):
+    """
+    Represents a term relevant to the configured topic domain, extracted from text.
+    """
+
+    term: str = Field(
+        ...,
+        description=f"A single {settings.topic_domain} term identified in the input text.",
+    )
+
+Class: ExtractedTerms
+Code:
+class ExtractedTerms(BaseModel):
+    """
+    A list of topic-relevant terms extracted from user input, intended for further processing or tagging.
+    """
+
+    terms: List[ExtractedTerm] = Field(
+        ...,
+        description=f"A list of {settings.topic_domain} terms extracted from user input.",
+    )
+
+Class: TermCritique
+Code:
+class TermCritique(BaseModel):
+    """
+    You are a domain expert asked to determine whether a term is relevant to the topic domain.
+    Justify your decision clearly and concisely based on the current subject area.
+    """
+
+    term: str = Field(
+        ...,
+        description=f"The term being evaluated for {settings.topic_domain} relevance.",
+    )
+    is_relevant: bool = Field(
+        ...,
+        description=f"Set to true if the term is relevant to {settings.topic_domain}.",
+    )
+    reason: str = Field(
+        ...,
+        description=f"Explanation of why the term is or isn't relevant to {settings.topic_domain}.",
+    )
+
+Class: DefinitionValidationResult
+Code:
+class DefinitionValidationResult(BaseModel):
+    """
+    You are a meticulous user-defined topic expert and editor tasked with validating definitions.
+    Focus solely on the user-defined topic/economic context.
+    """
+
+    is_valid: bool = Field(
+        ...,
+        description=f"Is the information factually correct within the {settings.topic_domain} context?",
+    )
+    confidence: float = Field(
+        ..., ge=0.0, le=1.0, description="Confidence level of the validation."
+    )
+    reasoning: str = Field(..., description="Your reasoning for the validation.")
+
+Class: Config
+Code:
+    class Config:
+        from_attributes = True
+
+Class: Settings
+Code:
+class Settings(BaseSettings):
+    """
+    Configuration settings for the terminus application.
+
+    Attributes
+    ----------
+    database_url : str
+        The connection string for the database.
+    log_level : str
+        The logging level for the application.
+    llm_model : str
+        The model name for the large language model (LLM) used in the application.
+    topic_domain : str
+        The domain of the topic for which the LLM is configured (e.g., finance).
+    """
+
+    # Pydantic Settings configuration
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Default configuration values
+    database_url: str = "sqlite:///./terminus.db"
+    log_level: str = "INFO"
+    llm_model: str = "gemini/gemini-2.0-flash"
+    topic_domain: str = "finance"
+    topic_keywords: List[str] = [
+        "finance",
+        "financial",
+        "banking",
+        "investment",
+        "economic",
+        "stock",
+        "market",
+        "derivative",
+    ]
+
+Class: terminusEntry
+Code:
+class terminusEntry(Base):
+    """
+    Represents an official, human-validated terminus entry.
+
+    This class defines the structure of the `terminus` table in the database,
+    which stores terms along with their definitions and follow-up information.
+
+    Attributes
+    ----------
+    term : str
+        The primary key and unique identifier for each terminus entry.
+    definition : str
+        The detailed explanation or meaning of the term.
+    follow_ups : str
+        Additional information or related terms associated with the main term.
+
+    Methods
+    -------
+    None
+    """
+
+    __tablename__ = "terminus"
+    term: str = Column(String, primary_key=True, index=True)
+    definition: str = Column(Text)
+    follow_ups: str = Column(Text)
+
+Class: CandidateterminusEntry
+Code:
+class CandidateterminusEntry(Base):
+    """
+    Represents a candidate terminus entry that is under review.
+
+    This class defines the structure of the `candidate_terminus` table in the database,
+    which stores terms that are proposed for inclusion in the official terminus but
+    have not yet been validated.
+
+    Attributes
+    ----------
+    term : str
+        The primary key and unique identifier for each candidate terminus entry.
+    definition : str
+        The proposed explanation or meaning of the term.
+    follow_ups : dict
+        Additional information or related terms associated with the proposed term.
+    status : str
+        The current review status of the candidate entry, defaulting to "under_review".
+
+    Methods
+    -------
+    None
+    """
+
+    __tablename__ = "candidate_terminus"
+    term: str = Column(String, primary_key=True, index=True)
+    definition: str = Column(String)
+    follow_ups: dict = Column(JSON)
+    status: str = Column(String, default="under_review")
+
+Class: BaseLLMService
+Code:
+class BaseLLMService(ABC):
+    """
+    Abstract base class for LLM services.
+
+    Attributes
+    ----------
+    model : str
+        The model identifier to be used for generating responses.
+    response_model : Type[BaseModel]
+        The Pydantic model to structure the response.
+    client : Any
+        The client instance for interacting with the LLM API.
+    system_message : str
+        The system message to be included in the conversation context.
+
+    Methods
+    -------
+    build_messages(user_message: str) -> List[Dict[str, str]]
+        Constructs the message list for the LLM API call.
+    generate_response(messages: List[Dict[str, str]], temperature: float = 0.0, **kwargs) -> BaseModel | None
+        Generates a response from the LLM based on the provided messages.
+    """
+
+    def __init__(
+        self,
+        model: str,
+        response_model: Type[BaseModel],
+        client: Any = instructor.from_litellm(acompletion),
+        system_message: str = "",
+    ):
+        self.model = model
+        self.response_model = response_model
+        self.client = client
+        self.system_message = system_message
+
+    def build_messages(self, user_message: str) -> List[Dict[str, str]]:
+        """
+        Constructs the message list for the LLM API call.
+
+        Parameters
+        ----------
+        user_message : str
+            The user message to be included in the conversation context.
+
+        Returns
+        -------
+        List[Dict[str, str]]
+            The list of messages formatted for the LLM API.
+        """
+        return [
+            {"role": "system", "content": self.system_message},
+            {"role": "user", "content": user_message},
+        ]
+
+    async def generate_response(
+        self, messages: List[Dict[str, str]], temperature: float = 0.0, **kwargs
+    ) -> BaseModel | None:
+        """
+        Generates a response from the LLM based on the provided messages.
+
+        Parameters
+        ----------
+        messages : List[Dict[str, str]
+            The list of messages to be sent to the LLM API.
+        temperature : float, optional
+            The temperature parameter for the LLM, by default 0.0.
+        **kwargs
+            Additional keyword arguments for the LLM API call.
+
+        Returns
+        -------
+        BaseModel | None
+            The structured response from the LLM, or None if an error occurs.
+        """
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                temperature=temperature,
+                response_model=self.response_model,
+                messages=messages,
+                **kwargs,
+            )
+            return response
+        except APIConnectionError as e:
+            logger.error(f"API connection failed: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"LLM error: {e}")
+            return self.response_model() if self.response_model else None
+
+Class: FUService
+Code:
+class FUService(BaseLLMService):
+    """
+    Service for generating follow-up questions based on a definition.
+
+    Attributes
+    ----------
+    user_message_template : str
+        The template for the user message to be included in the conversation context.
+
+    Methods
+    -------
+    generate_followups(term: str, definition: str, temperature: float = 0.0) -> terminusAnswer | None
+        Generates follow-up questions based on the provided term and definition.
+    """
+
+    def __init__(
+        self,
+        model: str = "gemini/gemini-2.0-flash",
+        response_model: Type[BaseModel] = terminusAnswer,
+        system_message: str = FOLLOWUP_SYSTEM_MESSAGE,
+        user_message_template: str = FOLLOWUP_USER_MESSAGE_TEMPLATE,
+        client: Any = instructor.from_litellm(acompletion),
+    ):
+        super().__init__(model, response_model, client, system_message)
+        self.user_message_template = user_message_template
+
+    async def generate_followups(
+        self, term: str, definition: str, temperature: float = 0.0
+    ) -> terminusAnswer | None:
+        """
+        Generates follow-up questions based on the provided term and definition.
+
+        Parameters
+        ----------
+        term : str
+            The term for which follow-up questions are generated.
+        definition : str
+            The definition of the term.
+        temperature : float, optional
+            The temperature parameter for the LLM, by default 0.0.
+
+        Returns
+        -------
+        terminusAnswer | None
+            The structured response containing follow-up questions, or None if an error occurs.
+        """
+        user_message = self.user_message_template.format(
+            term=term, definition=definition
+        )
+        messages = self.build_messages(user_message)
+        return await self.generate_response(messages, temperature=temperature)
+
+Class: DefinitionValidationService
+Code:
+class DefinitionValidationService(BaseLLMService):
+    """
+    Uses an LLM to validate a candidate definition for a given user-defined term.
+
+    This service sends a structured prompt to the LLM, based on the term and its definition,
+    and parses the result into a `DefinitionValidationResult`.
+
+    Parameters
+    ----------
+    model : str
+        LLM model identifier (default: 'gemini/gemini-2.0-flash').
+    response_model : Type[BaseModel]
+        Pydantic model to structure and validate the LLM output.
+    client : Any
+        LLM client object initialized through Instructor + LiteLLM.
+    system_message : str
+        Instructional message to set the LLM’s role/context.
+    user_message_template : str
+        Jinja-style template for the user input prompt.
+    """
+
+    def __init__(
+        self,
+        model: str = "gemini/gemini-2.0-flash",
+        response_model: Type[BaseModel] = DefinitionValidationResult,
+        client: Any = instructor.from_litellm(acompletion),
+        system_message: str = VALIDATION_SYSTEM_MESSAGE,
+        user_message_template: str = VALIDATION_USER_MESSAGE_TEMPLATE,
+    ):
+        super().__init__(
+            model=model,
+            response_model=response_model,
+            client=client,
+            system_message=system_message,
+        )
+        self.user_message_template = user_message_template
+
+    async def validate_definition(
+        self, term: str, summary: str, temperature: float = 0.0
+    ) -> Optional[DefinitionValidationResult]:
+        """
+        Validate a user-defined definition using an LLM.
+
+        Parameters
+        ----------
+        term : str
+            The user-defined term being defined.
+        summary : str
+            The candidate definition to validate.
+        temperature : float, optional
+            Sampling temperature for the LLM. Lower is more deterministic.
+
+        Returns
+        -------
+        Optional[DefinitionValidationResult]
+            A structured validation response, or None if validation failed.
+        """
+        if not term or not summary:
+            logger.warning("[Validation] Term or summary missing.")
+            return None
+
+        user_message = self.user_message_template.format(term=term, summary=summary)
+        messages = self.build_messages(user_message)
+
+        try:
+            result = await self.generate_response(
+                messages=messages, temperature=temperature
+            )
+
+            if isinstance(result, self.response_model):
+                return result
+            # Should ideally not happen if generate_response works correctly
+            logger.error(
+                f"[Validation] Unexpected LLM response type: {type(result)} for term '{term}'"
+            )
+            return None
+
+        except APIConnectionError as e:
+            # Already logged in base class, but maybe add context
+            logger.error(
+                f"[Validation] API connection error during validation for '{term}': {e}"
+            )
+            return None
+
+        except Exception as e:
+            logger.exception(
+                f"[Validation] Unexpected error during validation for term '{term}': {e}"
+            )
+            return None
+
+Class: ExtractionService
+Code:
+class ExtractionService(BaseLLMService):
+    def __init__(
+        self,
+        model: str = "gemini/gemini-2.0-flash",
+        response_model: Type[BaseModel] = ExtractedTerms,
+        system_message: str = f"You are a professional entity extractor. Extract relevant {settings.topic_domain} terms.",
+        user_message_template: str = f"Extract {settings.topic_domain}  terms"
+        + "from:\n{text}",
+        client: Any = instructor.from_litellm(acompletion),
+    ):
+        super().__init__(model, response_model, client, system_message)
+        self.user_message_template = user_message_template
+
+    async def extract_user_defined_terms(
+        self, text: str, temperature: float = 0.0
+    ) -> terminusAnswer | None:
+        """
+        Extracts user-defined terms from the provided text.
+
+        Parameters
+        ----------
+        text : str
+            The text from which user-defined terms are extracted.
+        temperature : float, optional
+            The temperature parameter for the LLM, by default 0.0.
+
+        Returns
+        -------
+        terminusAnswer | None
+            The structured response containing extracted user-defined terms, or None if an error occurs.
+        """
+        user_message = self.user_message_template.format(text=text)
+        messages = self.build_messages(user_message)
+        return await self.generate_response(messages, temperature=temperature)
+
+Class: TermExtractionService
+Code:
+class TermExtractionService(BaseLLMService):
+    """
+    Advanced service for extracting and validating user-defined terms from text.
+
+    Attributes
+    ----------
+    critique_response_model : Type[BaseModel]
+        The Pydantic model to structure the critique response.
+    critique_system_message : str
+        The system message for the critique step.
+    critique_user_message_template : str
+        The template for the user message in the critique step.
+
+    Methods
+    -------
+    validate_terms(text: str, temperature: float = 0.0) -> List[str]
+        Validates extracted user-defined terms by critiquing them.
+    _critique_term(term: str, temperature: float = 0.0) -> bool
+        Critiques a single term to determine if it is a user-defined term.
+    """
+
+    def __init__(
+        self,
+        model: str = "gemini/gemini-2.0-flash",
+        extraction_response_model: Type[BaseModel] = ExtractedTerms,
+        critique_response_model: Type[BaseModel] = TermCritique,
+        client: Any = instructor.from_litellm(acompletion),
+    ):
+        extraction_system_message = (
+            f"Extract {settings.topic_domain} terms from the text."
+        )
+        super().__init__(
+            model, extraction_response_model, client, extraction_system_message
+        )
+        self.critique_response_model = critique_response_model
+        self.critique_system_message = f"You are a {settings.topic_domain} analyst. Determine whether this is a {settings.topic_domain} term."
+        self.critique_user_message_template = "Term: {term}"
+
+    async def validate_terms(self, text: str, temperature: float = 0.0) -> List[str]:
+        """
+        Validates extracted user-defined terms by critiquing them.
+
+        Parameters
+        ----------
+        text : str
+            The text from which user-defined terms are extracted and validated.
+        temperature : float, optional
+            The temperature parameter for the LLM, by default 0.0.
+
+        Returns
+        -------
+        List[str]
+            The list of validated user-defined terms.
+        """
+        # Step 1: Extract raw candidate terms
+        messages = self.build_messages(user_message=text)
+        extraction_response = await self.generate_response(
+            messages, temperature=temperature
+        )
+        if extraction_response is None:
+            return []
+        candidate_terms = [ft.term for ft in extraction_response.terms]
+
+        # Step 2: Critique each term
+        validated = []
+        for term in candidate_terms:
+            if await self._critique_term(term, temperature=temperature):
+                validated.append(term)
+        return validated
+
+    async def _critique_term(self, term: str, temperature: float = 0.0) -> bool:
+        """
+        Critiques a single term to determine if it is a user-defined term.
+
+        Parameters
+        ----------
+        term : str
+            The term to be critiqued.
+        temperature : float, optional
+            The temperature parameter for the LLM, by default 0.0.
+
+        Returns
+        -------
+        bool
+            True if the term is a user-defined term, False otherwise.
+        """
+        messages = [
+            {"role": "system", "content": self.critique_system_message},
+            {
+                "role": "user",
+                "content": self.critique_user_message_template.format(term=term),
+            },
+        ]
+        try:
+            critique_response = await self.client.chat.completions.create(
+                model=self.model,
+                temperature=temperature,
+                response_model=self.critique_response_model,
+                messages=messages,
+            )
+            return critique_response.is_relevant
+        except Exception as e:
+            logger.error(f"Critique error for term '{term}': {e}")
+            return False
+
+Function: __init__
+Code:
+    def __init__(
+        self,
+        model: str,
+        response_model: Type[BaseModel],
+        client: Any = instructor.from_litellm(acompletion),
+        system_message: str = "",
+    ):
+        self.model = model
+        self.response_model = response_model
+        self.client = client
+        self.system_message = system_message
+
+Function: build_messages
+Code:
+    def build_messages(self, user_message: str) -> List[Dict[str, str]]:
+        """
+        Constructs the message list for the LLM API call.
+
+        Parameters
+        ----------
+        user_message : str
+            The user message to be included in the conversation context.
+
+        Returns
+        -------
+        List[Dict[str, str]]
+            The list of messages formatted for the LLM API.
+        """
+        return [
+            {"role": "system", "content": self.system_message},
+            {"role": "user", "content": user_message},
+        ]
+
+Function: __init__
+Code:
+    def __init__(
+        self,
+        model: str = "gemini/gemini-2.0-flash",
+        response_model: Type[BaseModel] = terminusAnswer,
+        system_message: str = FOLLOWUP_SYSTEM_MESSAGE,
+        user_message_template: str = FOLLOWUP_USER_MESSAGE_TEMPLATE,
+        client: Any = instructor.from_litellm(acompletion),
+    ):
+        super().__init__(model, response_model, client, system_message)
+        self.user_message_template = user_message_template
+
+Function: __init__
+Code:
+    def __init__(
+        self,
+        model: str = "gemini/gemini-2.0-flash",
+        response_model: Type[BaseModel] = DefinitionValidationResult,
+        client: Any = instructor.from_litellm(acompletion),
+        system_message: str = VALIDATION_SYSTEM_MESSAGE,
+        user_message_template: str = VALIDATION_USER_MESSAGE_TEMPLATE,
+    ):
+        super().__init__(
+            model=model,
+            response_model=response_model,
+            client=client,
+            system_message=system_message,
+        )
+        self.user_message_template = user_message_template
+
+Function: __init__
+Code:
+    def __init__(
+        self,
+        model: str = "gemini/gemini-2.0-flash",
+        response_model: Type[BaseModel] = ExtractedTerms,
+        system_message: str = f"You are a professional entity extractor. Extract relevant {settings.topic_domain} terms.",
+        user_message_template: str = f"Extract {settings.topic_domain}  terms"
+        + "from:\n{text}",
+        client: Any = instructor.from_litellm(acompletion),
+    ):
+        super().__init__(model, response_model, client, system_message)
+        self.user_message_template = user_message_template
+
+Function: __init__
+Code:
+    def __init__(
+        self,
+        model: str = "gemini/gemini-2.0-flash",
+        extraction_response_model: Type[BaseModel] = ExtractedTerms,
+        critique_response_model: Type[BaseModel] = TermCritique,
+        client: Any = instructor.from_litellm(acompletion),
+    ):
+        extraction_system_message = (
+            f"Extract {settings.topic_domain} terms from the text."
+        )
+        super().__init__(
+            model, extraction_response_model, client, extraction_system_message
+        )
+        self.critique_response_model = critique_response_model
+        self.critique_system_message = f"You are a {settings.topic_domain} analyst. Determine whether this is a {settings.topic_domain} term."
+        self.critique_user_message_template = "Term: {term}"
+
+Class: WikipediaService
+Code:
+class WikipediaService:
+    """
+    An asynchronous service for querying Wikipedia and retrieving summaries of user-defined terms.
+
+    This class provides methods to search Wikipedia, handle disambiguation, and
+    prioritize topic-relevant Wikipedia content. It uses asyncio.to_thread to run blocking
+    Wikipedia library calls in a separate thread, making it suitable for async applications.
+
+    Attributes
+    ----------
+    context_hint : str, optional
+        A string providing context for searches (default: "topic economics banking investment market").
+        This hint is appended to the search term in fallback searches.
+    topic_keywords : list of str
+        A list of keywords used to identify and prioritize topic-related Wikipedia pages.
+    topic_pattern : re.Pattern
+        A compiled regular expression pattern for efficiently matching topic keywords.
+    """
+
+    def __init__(self, context_hint: str = f"{settings.topic_domain}"):
+        """
+        Initializes the WikipediaService with a context hint and topic keywords.
+
+        Parameters
+        ----------
+        context_hint : str, optional
+            A string providing context for searches (default: "topic economics banking investment market").
+            This hint is appended to the search term in fallback searches.
+        """
+        self.context_hint = context_hint
+        self.topic_keywords = settings.topic_keywords
+        self.topic_pattern = re.compile(
+            r"\b("
+            + "|".join(re.escape(k) for k in self.topic_keywords)
+            + r")\b"
+            + r"|\(("
+            + "|".join(re.escape(k) for k in self.topic_keywords)
+            + r")\)",
+            re.IGNORECASE,
+        )
+
+    async def _get_summary(self, title: str) -> str | None:  # Changed to async def
+        """
+        Safely fetches a summary from Wikipedia for a given title asynchronously.
+
+        Runs the blocking wikipedia.summary call in a separate thread. Handles
+        potential errors such as DisambiguationError and PageError.
+
+        Parameters
+        ----------
+        title : str
+            The title of the Wikipedia page to summarize.
+
+        Returns
+        -------
+        str or None
+            A short summary of the Wikipedia page, or None if an error occurred.
+        """
+        try:
+            # Run the blocking summary call in a thread
+            summary = await asyncio.to_thread(
+                wikipedia.summary, title, sentences=2, auto_suggest=False
+            )
+            return summary
+        except wikipedia.exceptions.DisambiguationError as e:
+            logger.warning(
+                f"Disambiguation error encountered for '{title}': {e.options}"
+            )
+            # Disambiguation handling now needs to be awaited
+            return await self._handle_disambiguation(title, e.options)
+        except wikipedia.exceptions.PageError:
+            logger.warning(f"PageError fetching summary for '{title}'.")
+            return None
+        except Exception as e:
+            # Catch unexpected errors from the library or threading
+            logger.error(f"Unexpected error fetching summary for '{title}': {e}")
+            return None
+
+    async def _handle_disambiguation(
+        self, term: str, options: list[str]
+    ) -> str | None:  # Changed to async def
+        """
+        Asynchronously selects the best option from a disambiguation list, prioritizing topic.
+
+        Parameters
+        ----------
+        term : str
+            The original search term that led to disambiguation.
+        options : list of str
+            A list of disambiguation options provided by Wikipedia.
+
+        Returns
+        -------
+        str or None
+            A summary of the best disambiguation option, or None if no suitable option is found.
+        """
+        logger.info(f"Handling disambiguation for '{term}'. Options: {options}")
+
+        topic_opts = [opt for opt in options if self.topic_pattern.search(opt)]
+        if topic_opts:
+            logger.info(
+                f"Found {settings.topic_domain} related options: {topic_opts}. Selecting '{topic_opts[0]}'."
+            )
+            # Call _get_summary asynchronously
+            return await self._get_summary(topic_opts[0])
+
+        # Optional: Add handling for exact match if needed, calling await self._get_summary(...)
+
+        if options:
+            logger.info(
+                f"No specific {settings.topic_domain} option found. Falling back to first option: '{options[0]}'."
+            )
+            # Call _get_summary asynchronously
+            return await self._get_summary(options[0])
+
+        logger.warning(
+            f"Could not resolve disambiguation for '{term}'. No suitable options."
+        )
+        return None
+
+    async def query(self, term: str) -> str:  # Changed to async def
+        """
+        Asynchronously fetch a ~2-sentence summary from Wikipedia, prioritizing topic topics.
+
+        Uses asyncio.to_thread for blocking calls.
+
+        Parameters
+        ----------
+        term : str
+            The search term for which to retrieve a Wikipedia summary.
+
+        Returns
+        -------
+        str
+            A summary of the Wikipedia page, or an error message if no suitable page is found.
+        """
+        term = term.strip()
+        if not term:
+            return "Please provide a term to search."  # No async needed for this simple return
+
+        preferred_candidate = None  # Keep track of candidate tested
+
+        try:
+            # === Strategy 1: Try explicit "term (topic)" ===
+            explicit_topic_term = f"{term} ({settings.topic_domain})"
+            logger.info(
+                f"Trying explicit {settings.topic_domain} term: '{explicit_topic_term}'"
+            )
+            try:
+                # Use page() first - run blocking call in thread
+                page_obj = await asyncio.to_thread(
+                    wikipedia.page, explicit_topic_term, auto_suggest=False
+                )
+                page_title = page_obj.title
+
+                logger.info(
+                    f"Found direct page for '{explicit_topic_term}' with title '{page_title}'."
+                )
+                # Use page.title for summary - await the async _get_summary
+                summary = await self._get_summary(page_title)
+                if summary:
+                    return summary
+            except wikipedia.exceptions.PageError:
+                logger.info(
+                    f"'{explicit_topic_term}' not found directly. Proceeding to search."
+                )
+            except wikipedia.exceptions.DisambiguationError as e:
+                logger.info(f"'{explicit_topic_term}' led to disambiguation.")
+                # Await the async handler
+                summary = await self._handle_disambiguation(
+                    explicit_topic_term, e.options
+                )
+                if summary:
+                    return summary
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error checking explicit term '{explicit_topic_term}': {e}"
+                )
+                # Continue to general search
+
+            # === Strategy 2: Use wikipedia.search() ===
+            logger.info(f"Performing search for term: '{term}'")
+            # Run blocking search call in thread
+            search_results = await asyncio.to_thread(wikipedia.search, term, results=5)
+            logger.info(f"Search results for '{term}': {search_results}")
+
+            if search_results:
+                # Prioritize results (same logic as before)
+                for result in search_results:
+                    if self.topic_pattern.search(result):
+                        preferred_candidate = result
+                        logger.info(
+                            f"Selected {settings.topic_domain}-related candidate from search: '{preferred_candidate}'"
+                        )
+                        break
+                if not preferred_candidate:
+                    top_result_lower = search_results[0].lower()
+                    term_lower = term.lower()
+                    if top_result_lower == term_lower or top_result_lower.startswith(
+                        term_lower + " ("
+                    ):
+                        preferred_candidate = search_results[0]
+                        logger.info(
+                            f"No {settings.topic_domain} keyword match, selecting top search result: '{preferred_candidate}'"
+                        )
+                    else:
+                        preferred_candidate = search_results[0]
+                        logger.info(
+                            f"No {settings.topic_domain} keyword match or direct term match, defaulting to top search result: '{preferred_candidate}'"
+                        )
+
+            # === Strategy 3: Attempt summary for the best candidate ===
+            if preferred_candidate:
+                logger.info(
+                    f"Attempting to get summary for candidate: '{preferred_candidate}'"
+                )
+                # Await the async summary fetch
+                summary = await self._get_summary(preferred_candidate)
+                if summary:
+                    return summary
+
+            logger.info(
+                f"Initial search and candidate summary failed or yielded no result for '{term}'."
+            )
+
+            # === Strategy 4: Fallback - Search with context hint ===
+            context_term = f"{term} {self.context_hint}"
+            logger.info(f"Falling back to search with context hint: '{context_term}'")
+            # Run blocking context search call in thread
+            context_search_results = await asyncio.to_thread(
+                wikipedia.search, context_term, results=3
+            )
+            logger.info(f"Context search results: {context_search_results}")
+
+            if context_search_results:
+                context_candidate = context_search_results[0]
+                if context_candidate == preferred_candidate:
+                    logger.warning(
+                        f"Context search yielded same candidate '{context_candidate}' which already failed."
+                    )
+                else:
+                    logger.info(
+                        f"Attempting summary for context search candidate: '{context_candidate}'"
+                    )
+                    # Await the async summary fetch
+                    summary = await self._get_summary(context_candidate)
+                    if summary:
+                        return summary
+
+            # === Final Fallback ===
+            logger.warning(
+                f"Could not find relevant Wikipedia page for '{term}' after all strategies."
+            )
+            return f"Could not find a relevant Wikipedia page for '{term}'."
+
+        except Exception as e:
+            # Catch-all for unexpected errors during the query process
+            logger.exception(
+                f"An unexpected error occurred during Wikipedia query for '{term}': {e}"
+            )
+            return f"An error occurred while searching Wikipedia for '{term}'."
+
+Function: __init__
+Code:
+    def __init__(self, context_hint: str = f"{settings.topic_domain}"):
+        """
+        Initializes the WikipediaService with a context hint and topic keywords.
+
+        Parameters
+        ----------
+        context_hint : str, optional
+            A string providing context for searches (default: "topic economics banking investment market").
+            This hint is appended to the search term in fallback searches.
+        """
+        self.context_hint = context_hint
+        self.topic_keywords = settings.topic_keywords
+        self.topic_pattern = re.compile(
+            r"\b("
+            + "|".join(re.escape(k) for k in self.topic_keywords)
+            + r")\b"
+            + r"|\(("
+            + "|".join(re.escape(k) for k in self.topic_keywords)
+            + r")\)",
+            re.IGNORECASE,
+        )
+
+Class: terminusService
+Code:
+class terminusService:
+    """
+    Service class for managing terminus entries.
+
+    This class provides methods to interact with the terminus database, including
+    retrieving, saving, deleting, and checking the existence of entries. It also
+    handles serialization and deserialization of follow-up data.
+
+    Attributes
+    ----------
+    session : Session
+        SQLAlchemy session used to interact with the database.
+    """
+
+    def __init__(self, session: Session):
+        """
+        Initialize the terminusService with a database session.
+
+        Parameters
+        ----------
+        session : Session
+            SQLAlchemy session used to interact with the database.
+        """
+        self.session = session
+
+    def get_as_pydantic(self, term: str) -> terminusAnswer | None:
+        """
+        Retrieve a terminus entry as a Pydantic model.
+
+        This method fetches a terminus entry from the database and deserializes
+        its follow-ups into a list of `FollowUp` objects.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        terminusAnswer or None
+            A Pydantic model representing the terminus entry, or None if the
+            entry does not exist.
+        """
+        db_obj = self.session.query(terminusEntry).filter_by(term=term.lower()).first()
+        if not db_obj:
+            return None
+        # Deserialize follow-ups from JSON string to a list of FollowUp objects
+        follow_ups = self._deserialize_follow_ups(db_obj.follow_ups)
+        return terminusAnswer(
+            term=db_obj.term, definition=db_obj.definition, follow_ups=follow_ups
+        )
+
+    def get(self, term: str) -> terminusEntry | None:
+        """
+        Retrieve a raw terminusEntry SQLAlchemy object.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        terminusEntry or None
+            The SQLAlchemy object representing the terminus entry, or None if
+            the entry does not exist.
+        """
+        return self.session.query(terminusEntry).filter_by(term=term.lower()).first()
+
+    def save(self, term: str, definition: str, follow_ups: list[dict | FollowUp]):
+        """
+        Save or update a terminus entry in the database.
+
+        Parameters
+        ----------
+        term : str
+            The term to save in the terminus.
+        definition : str
+            The definition of the term.
+        follow_ups : list[dict or FollowUp]
+            A list of follow-up questions or related terms, either as `FollowUp`
+            objects or dictionaries.
+        """
+        # Serialize follow-ups into a JSON string for storage
+        entry = terminusEntry(
+            term=term.lower(),
+            definition=definition,
+            follow_ups=self._serialize_follow_ups(follow_ups),
+        )
+        # Use `merge` to insert or update the entry
+        self.session.merge(entry)
+        self.session.commit()
+
+    def delete(self, term: str) -> bool:
+        """
+        Delete a terminus entry from the database.
+
+        Parameters
+        ----------
+        term : str
+            The term to delete from the terminus.
+
+        Returns
+        -------
+        bool
+            True if the entry was deleted, False if it did not exist.
+        """
+        entry = self.session.query(terminusEntry).filter_by(term=term.lower()).first()
+        if not entry:
+            return False
+        self.session.delete(entry)
+        self.session.commit()
+        return True
+
+    def exists(self, term: str) -> bool:
+        """
+        Check if a terminus entry exists in the database.
+
+        Parameters
+        ----------
+        term : str
+            The term to check for in the terminus.
+
+        Returns
+        -------
+        bool
+            True if the entry exists, False otherwise.
+        """
+        # Use a subquery to check for existence
+        return self.session.query(
+            self.session.query(terminusEntry).filter_by(term=term.lower()).exists()
+        ).scalar()
+
+    def _serialize_follow_ups(self, follow_ups: list[dict | FollowUp]) -> str:
+        """
+        Serialize follow-ups into a JSON string.
+
+        Parameters
+        ----------
+        follow_ups : list[dict or FollowUp]
+            A list of follow-up questions or related terms, either as `FollowUp`
+            objects or dictionaries.
+
+        Returns
+        -------
+        str
+            A JSON string representing the serialized follow-ups.
+        """
+        serialized = []
+        for fu in follow_ups:
+            # Convert FollowUp objects to dictionaries if necessary
+            if isinstance(fu, FollowUp):
+                serialized.append(fu.model_dump())
+            else:
+                serialized.append(fu)
+        return json.dumps(serialized)
+
+    def _deserialize_follow_ups(self, follow_ups_str: str) -> list[FollowUp]:
+        """
+        Deserialize a JSON string into a list of FollowUp objects.
+
+        Parameters
+        ----------
+        follow_ups_str : str
+            A JSON string representing the serialized follow-ups.
+
+        Returns
+        -------
+        list[FollowUp]
+            A list of `FollowUp` objects.
+        """
+        if not follow_ups_str:
+            return []
+        # Parse the JSON string and convert each item to a FollowUp object
+        data = json.loads(follow_ups_str)
+        return [FollowUp(**fu) for fu in data]
+
+Function: __init__
+Code:
+    def __init__(self, session: Session):
+        """
+        Initialize the terminusService with a database session.
+
+        Parameters
+        ----------
+        session : Session
+            SQLAlchemy session used to interact with the database.
+        """
+        self.session = session
+
+Function: get_as_pydantic
+Code:
+    def get_as_pydantic(self, term: str) -> terminusAnswer | None:
+        """
+        Retrieve a terminus entry as a Pydantic model.
+
+        This method fetches a terminus entry from the database and deserializes
+        its follow-ups into a list of `FollowUp` objects.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        terminusAnswer or None
+            A Pydantic model representing the terminus entry, or None if the
+            entry does not exist.
+        """
+        db_obj = self.session.query(terminusEntry).filter_by(term=term.lower()).first()
+        if not db_obj:
+            return None
+        # Deserialize follow-ups from JSON string to a list of FollowUp objects
+        follow_ups = self._deserialize_follow_ups(db_obj.follow_ups)
+        return terminusAnswer(
+            term=db_obj.term, definition=db_obj.definition, follow_ups=follow_ups
+        )
+
+Function: get
+Code:
+    def get(self, term: str) -> terminusEntry | None:
+        """
+        Retrieve a raw terminusEntry SQLAlchemy object.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        terminusEntry or None
+            The SQLAlchemy object representing the terminus entry, or None if
+            the entry does not exist.
+        """
+        return self.session.query(terminusEntry).filter_by(term=term.lower()).first()
+
+Function: save
+Code:
+    def save(self, term: str, definition: str, follow_ups: list[dict | FollowUp]):
+        """
+        Save or update a terminus entry in the database.
+
+        Parameters
+        ----------
+        term : str
+            The term to save in the terminus.
+        definition : str
+            The definition of the term.
+        follow_ups : list[dict or FollowUp]
+            A list of follow-up questions or related terms, either as `FollowUp`
+            objects or dictionaries.
+        """
+        # Serialize follow-ups into a JSON string for storage
+        entry = terminusEntry(
+            term=term.lower(),
+            definition=definition,
+            follow_ups=self._serialize_follow_ups(follow_ups),
+        )
+        # Use `merge` to insert or update the entry
+        self.session.merge(entry)
+        self.session.commit()
+
+Function: delete
+Code:
+    def delete(self, term: str) -> bool:
+        """
+        Delete a terminus entry from the database.
+
+        Parameters
+        ----------
+        term : str
+            The term to delete from the terminus.
+
+        Returns
+        -------
+        bool
+            True if the entry was deleted, False if it did not exist.
+        """
+        entry = self.session.query(terminusEntry).filter_by(term=term.lower()).first()
+        if not entry:
+            return False
+        self.session.delete(entry)
+        self.session.commit()
+        return True
+
+Function: exists
+Code:
+    def exists(self, term: str) -> bool:
+        """
+        Check if a terminus entry exists in the database.
+
+        Parameters
+        ----------
+        term : str
+            The term to check for in the terminus.
+
+        Returns
+        -------
+        bool
+            True if the entry exists, False otherwise.
+        """
+        # Use a subquery to check for existence
+        return self.session.query(
+            self.session.query(terminusEntry).filter_by(term=term.lower()).exists()
+        ).scalar()
+
+Function: _serialize_follow_ups
+Code:
+    def _serialize_follow_ups(self, follow_ups: list[dict | FollowUp]) -> str:
+        """
+        Serialize follow-ups into a JSON string.
+
+        Parameters
+        ----------
+        follow_ups : list[dict or FollowUp]
+            A list of follow-up questions or related terms, either as `FollowUp`
+            objects or dictionaries.
+
+        Returns
+        -------
+        str
+            A JSON string representing the serialized follow-ups.
+        """
+        serialized = []
+        for fu in follow_ups:
+            # Convert FollowUp objects to dictionaries if necessary
+            if isinstance(fu, FollowUp):
+                serialized.append(fu.model_dump())
+            else:
+                serialized.append(fu)
+        return json.dumps(serialized)
+
+Function: _deserialize_follow_ups
+Code:
+    def _deserialize_follow_ups(self, follow_ups_str: str) -> list[FollowUp]:
+        """
+        Deserialize a JSON string into a list of FollowUp objects.
+
+        Parameters
+        ----------
+        follow_ups_str : str
+            A JSON string representing the serialized follow-ups.
+
+        Returns
+        -------
+        list[FollowUp]
+            A list of `FollowUp` objects.
+        """
+        if not follow_ups_str:
+            return []
+        # Parse the JSON string and convert each item to a FollowUp object
+        data = json.loads(follow_ups_str)
+        return [FollowUp(**fu) for fu in data]
+
+Class: CandidateterminusService
+Code:
+class CandidateterminusService:
+    """
+    Service class for managing candidate terminus entries in the database.
+
+    This class provides methods to interact with the `CandidateterminusEntry` model,
+    including retrieving, saving, deleting, and checking the existence of entries.
+    It also handles serialization and deserialization of follow-up data associated
+    with terminus entries.
+
+    Attributes
+    ----------
+    session : sqlalchemy.orm.Session
+        The database session used for querying and modifying `CandidateterminusEntry` records.
+    """
+
+    def __init__(self, session: Session):
+        """
+        Initialize the CandidateterminusService with a database session.
+
+        Parameters
+        ----------
+        session : sqlalchemy.orm.Session
+            The database session to be used for operations.
+        """
+        self.session = session
+
+    def get(self, term: str) -> CandidateterminusEntry | None:
+        """
+        Retrieve a candidate terminus entry by term.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        CandidateterminusEntry or None
+            The matching `CandidateterminusEntry` object if found, otherwise None.
+        """
+        return (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+
+    def get_as_pydantic(self, term: str) -> CandidateterminusAnswer | None:
+        """
+        Retrieve a candidate terminus entry as a Pydantic model.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        CandidateterminusAnswer or None
+            A Pydantic model representation of the entry if found, otherwise None.
+        """
+        db_obj = (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+        if not db_obj:
+            return None
+        # We do NOT overwrite db_obj.follow_ups
+        follow_ups_list = self._deserialize_follow_ups(db_obj.follow_ups)
+        return CandidateterminusAnswer(
+            term=db_obj.term,
+            definition=db_obj.definition,
+            follow_ups=follow_ups_list,
+            status=db_obj.status,
+        )
+
+    def get_dict(self, term: str) -> dict | None:
+        """
+        Retrieve a candidate terminus entry as a dictionary.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        dict or None
+            A dictionary representation of the entry if found, otherwise None.
+        """
+        db_obj = (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+        if not db_obj:
+            return None
+        follow_ups_list = self._deserialize_follow_ups(db_obj.follow_ups)
+        self.session.expunge(db_obj)
+        return {
+            "term": db_obj.term,
+            "definition": db_obj.definition,
+            "follow_ups": follow_ups_list,
+            "status": db_obj.status,
+        }
+
+    def save(
+        self,
+        term: str,
+        definition: str,
+        follow_ups: list[dict | FollowUp],
+        status: str = "under_review",
+    ):
+        """
+        Save or update a candidate terminus entry in the database.
+
+        Parameters
+        ----------
+        term : str
+            The term to save or update.
+        definition : str
+            The definition of the term.
+        follow_ups : list[dict or FollowUp]
+            A list of follow-up questions or actions related to the term.
+        status : str, optional
+            The status of the entry, by default "under_review".
+        """
+        entry = CandidateterminusEntry(
+            term=term.lower(),
+            definition=definition,
+            follow_ups=self._serialize_follow_ups(follow_ups),
+            status=status,
+        )
+        self.session.merge(entry)
+        self.session.commit()
+
+    def delete(self, term: str) -> bool:
+        """
+        Delete a candidate terminus entry by term.
+
+        Parameters
+        ----------
+        term : str
+            The term to delete from the terminus.
+
+        Returns
+        -------
+        bool
+            True if the entry was deleted, False if it was not found.
+        """
+        entry = (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+        if not entry:
+            return False
+        self.session.delete(entry)
+        self.session.commit()
+        return True
+
+    def exists(self, term: str) -> bool:
+        """
+        Check if a candidate terminus entry exists for a given term.
+
+        Parameters
+        ----------
+        term : str
+            The term to check for existence.
+
+        Returns
+        -------
+        bool
+            True if the entry exists, False otherwise.
+        """
+        return self.session.query(
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .exists()
+        ).scalar()
+
+    def reject(self, term: str, reason: str = "No reason provided"):
+        """
+        Mark a candidate terminus entry as rejected with an optional reason.
+
+        Parameters
+        ----------
+        term : str
+            The term to reject.
+        reason : str, optional
+            The reason for rejection, by default "No reason provided".
+        """
+        entry = (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+        if entry:
+            entry.status = f"rejected: {reason}"
+            self.session.commit()
+
+    def _serialize_follow_ups(self, follow_ups: list[dict | FollowUp]) -> str:
+        """
+        Serialize a list of follow-ups into a JSON string.
+
+        Parameters
+        ----------
+        follow_ups : list[dict or FollowUp]
+            A list of follow-up questions or actions.
+
+        Returns
+        -------
+        str
+            A JSON string representation of the follow-ups.
+        """
+        serialized = []
+        for fu in follow_ups:
+            if isinstance(fu, FollowUp):
+                serialized.append(fu.dict())
+            else:
+                serialized.append(fu)
+        return json.dumps(serialized)
+
+    def _deserialize_follow_ups(self, follow_ups_str: str) -> list[FollowUp]:
+        """
+        Deserialize a JSON string of follow-ups into a list of FollowUp objects.
+
+        Parameters
+        ----------
+        follow_ups_str : str
+            A JSON string representation of follow-ups.
+
+        Returns
+        -------
+        list[FollowUp]
+            A list of `FollowUp` objects.
+        """
+        if not follow_ups_str:
+            return []
+        import json
+
+        data = json.loads(follow_ups_str)
+        return [FollowUp(**fu) for fu in data]
+
+Function: __init__
+Code:
+    def __init__(self, session: Session):
+        """
+        Initialize the CandidateterminusService with a database session.
+
+        Parameters
+        ----------
+        session : sqlalchemy.orm.Session
+            The database session to be used for operations.
+        """
+        self.session = session
+
+Function: get
+Code:
+    def get(self, term: str) -> CandidateterminusEntry | None:
+        """
+        Retrieve a candidate terminus entry by term.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        CandidateterminusEntry or None
+            The matching `CandidateterminusEntry` object if found, otherwise None.
+        """
+        return (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+
+Function: get_as_pydantic
+Code:
+    def get_as_pydantic(self, term: str) -> CandidateterminusAnswer | None:
+        """
+        Retrieve a candidate terminus entry as a Pydantic model.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        CandidateterminusAnswer or None
+            A Pydantic model representation of the entry if found, otherwise None.
+        """
+        db_obj = (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+        if not db_obj:
+            return None
+        # We do NOT overwrite db_obj.follow_ups
+        follow_ups_list = self._deserialize_follow_ups(db_obj.follow_ups)
+        return CandidateterminusAnswer(
+            term=db_obj.term,
+            definition=db_obj.definition,
+            follow_ups=follow_ups_list,
+            status=db_obj.status,
+        )
+
+Function: get_dict
+Code:
+    def get_dict(self, term: str) -> dict | None:
+        """
+        Retrieve a candidate terminus entry as a dictionary.
+
+        Parameters
+        ----------
+        term : str
+            The term to search for in the terminus.
+
+        Returns
+        -------
+        dict or None
+            A dictionary representation of the entry if found, otherwise None.
+        """
+        db_obj = (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+        if not db_obj:
+            return None
+        follow_ups_list = self._deserialize_follow_ups(db_obj.follow_ups)
+        self.session.expunge(db_obj)
+        return {
+            "term": db_obj.term,
+            "definition": db_obj.definition,
+            "follow_ups": follow_ups_list,
+            "status": db_obj.status,
+        }
+
+Function: save
+Code:
+    def save(
+        self,
+        term: str,
+        definition: str,
+        follow_ups: list[dict | FollowUp],
+        status: str = "under_review",
+    ):
+        """
+        Save or update a candidate terminus entry in the database.
+
+        Parameters
+        ----------
+        term : str
+            The term to save or update.
+        definition : str
+            The definition of the term.
+        follow_ups : list[dict or FollowUp]
+            A list of follow-up questions or actions related to the term.
+        status : str, optional
+            The status of the entry, by default "under_review".
+        """
+        entry = CandidateterminusEntry(
+            term=term.lower(),
+            definition=definition,
+            follow_ups=self._serialize_follow_ups(follow_ups),
+            status=status,
+        )
+        self.session.merge(entry)
+        self.session.commit()
+
+Function: delete
+Code:
+    def delete(self, term: str) -> bool:
+        """
+        Delete a candidate terminus entry by term.
+
+        Parameters
+        ----------
+        term : str
+            The term to delete from the terminus.
+
+        Returns
+        -------
+        bool
+            True if the entry was deleted, False if it was not found.
+        """
+        entry = (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+        if not entry:
+            return False
+        self.session.delete(entry)
+        self.session.commit()
+        return True
+
+Function: exists
+Code:
+    def exists(self, term: str) -> bool:
+        """
+        Check if a candidate terminus entry exists for a given term.
+
+        Parameters
+        ----------
+        term : str
+            The term to check for existence.
+
+        Returns
+        -------
+        bool
+            True if the entry exists, False otherwise.
+        """
+        return self.session.query(
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .exists()
+        ).scalar()
+
+Function: reject
+Code:
+    def reject(self, term: str, reason: str = "No reason provided"):
+        """
+        Mark a candidate terminus entry as rejected with an optional reason.
+
+        Parameters
+        ----------
+        term : str
+            The term to reject.
+        reason : str, optional
+            The reason for rejection, by default "No reason provided".
+        """
+        entry = (
+            self.session.query(CandidateterminusEntry)
+            .filter_by(term=term.lower())
+            .first()
+        )
+        if entry:
+            entry.status = f"rejected: {reason}"
+            self.session.commit()
+
+Function: _serialize_follow_ups
+Code:
+    def _serialize_follow_ups(self, follow_ups: list[dict | FollowUp]) -> str:
+        """
+        Serialize a list of follow-ups into a JSON string.
+
+        Parameters
+        ----------
+        follow_ups : list[dict or FollowUp]
+            A list of follow-up questions or actions.
+
+        Returns
+        -------
+        str
+            A JSON string representation of the follow-ups.
+        """
+        serialized = []
+        for fu in follow_ups:
+            if isinstance(fu, FollowUp):
+                serialized.append(fu.dict())
+            else:
+                serialized.append(fu)
+        return json.dumps(serialized)
+
+Function: _deserialize_follow_ups
+Code:
+    def _deserialize_follow_ups(self, follow_ups_str: str) -> list[FollowUp]:
+        """
+        Deserialize a JSON string of follow-ups into a list of FollowUp objects.
+
+        Parameters
+        ----------
+        follow_ups_str : str
+            A JSON string representation of follow-ups.
+
+        Returns
+        -------
+        list[FollowUp]
+            A list of `FollowUp` objects.
+        """
+        if not follow_ups_str:
+            return []
+        import json
+
+        data = json.loads(follow_ups_str)
+        return [FollowUp(**fu) for fu in data]
+

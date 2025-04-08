@@ -1,0 +1,45 @@
+services:
+  terminus:
+    container_name: terminus-app
+
+    build:
+      context: .
+      dockerfile: Dockerfile        # Uses the specified Dockerfile to build the image
+
+    ports:
+      - "8000:8000"                 # Expose FastAPI on localhost:8000 (dev only; use reverse proxy in prod)
+
+    env_file:
+      - .env                        # Load environment variables (API keys, config, etc.)
+
+    volumes:
+      - ./src:/app/src             # Dev: live reload when code changes (remove in production for immutability)
+      - ./volumes/sqlite_data:/app/data  # Mount local persistent volume for SQLite DB
+
+    environment:
+      - PYTHONPATH=/app/src        # Enables `from terminus...` imports in code
+      - DATABASE_URL=sqlite:///data/terminus.db  # SQLite DB relative to /app
+
+    command:
+      - python
+      - -m
+      - uvicorn
+      - src.terminus.app:app
+      - --host
+      - 0.0.0.0  # Make app reachable from outside container
+      - --port
+      - "8000"
+      - --reload  # Dev only: auto-reloads on code changes (disable in production)
+
+    networks:
+      - terminus-network            # Shared network (for connecting services if needed)
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]  # Ping /docs to check service health
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  terminus-network:
+    driver: bridge                  # Default Docker bridge network
