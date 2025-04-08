@@ -24,7 +24,6 @@ venv/
 secrets.env
 
 # uv / Astral-specific
-uv.lock
 pip-log.txt
 pip-wheel-metadata/
 __pypackages__/
