@@ -37,7 +37,7 @@ jobs:
             uv-${{ runner.os }}-
 
       - name: 📦 Install dependencies (lint)
-        run: uv sync --lint
+        run: uv sync --group lint
 
       - name: ✨ Lint with Ruff
         run: |
