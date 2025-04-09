@@ -1,4 +1,3 @@
-
 name: Terminus CI/CD
 
 on:
@@ -8,11 +7,11 @@ on:
     branches: [main]
 
 permissions:
-  contents: read  # Minimum required
+  contents: read  # Minimal permissions required
 
 jobs:
   generate-matrix:
-    name: 🧮 Generate Nox Sessions Matrix
+    name: 🧮 Generate Nox Session Matrix
     runs-on: ubuntu-latest
     outputs:
       sessions: ${{ steps.set-matrix.outputs.sessions }}
@@ -43,24 +42,27 @@ jobs:
               sys.exit(1)
           "
 
-      - name: 📦 Install uv and nox
+      - name: 📦 Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: 📦 Create virtualenv & install nox
-        run: |
-          uv venv .venv-ci  # Create isolated virtual environment for CI
-          .venv-ci/bin/uv pip install nox  # Install nox using uv-managed pip
+      - name: 🔧 Install nox via uv tool
+        run: uv tool install nox
 
-      - name: 🧪 Run Nox Session
-        run: .venv-ci/bin/nox -s "${{ matrix.session }}"
+      - name: 🧠 Cache uv tools (nox, etc.)
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/uv/tools
+          key: uv-tools-${{ runner.os }}-${{ hashFiles('pyproject.toml', '**/uv.lock') }}
+          restore-keys: |
+            uv-tools-${{ runner.os }}-
 
-      - name: 🧠 Generate Nox Sessions JSON
+      - name: 🔍 Generate Nox Sessions JSON
         id: set-matrix
         run: |
-          echo "sessions=$(nox --json -l | jq -c '[.[].session]')" >> $GITHUB_OUTPUT
+          echo "sessions=$(uv tool run nox -- --json -l | jq -c '[.[].session]')" >> $GITHUB_OUTPUT
 
   run-nox-sessions:
-    name: ✅ Run ${{ matrix.session }} via Nox
+    name: ✅ Run ${{ matrix.session }} via uv tool
     needs: [generate-matrix]
     runs-on: ubuntu-latest
     strategy:
@@ -77,30 +79,22 @@ jobs:
         with:
           python-version: ${{ needs.generate-matrix.outputs.python-version }}
 
-      - name: 📦 Install uv and nox
+      - name: 📦 Install uv
         uses: astral-sh/setup-uv@v5
 
-    #   - name: 🔧 Install Nox
-    #     run: uv pip install --system nox
+      - name: 🔧 Install nox via uv tool
+        run: uv tool install nox
 
-      - name: 📦 Create virtualenv & install nox
-        run: |
-          uv venv .venv-ci  # Create isolated virtual environment for CI
-          .venv-ci/bin/uv pip install nox  # Install nox using uv-managed pip
-
-      - name: 🧪 Run Nox Session
-        run: .venv-ci/bin/nox -s "${{ matrix.session }}"
-
-      - name: 🧠 Restore uv Cache
+      - name: 🧠 Restore uv tools cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ needs.generate-matrix.outputs.python-version }}-${{ hashFiles('pyproject.toml', '**/uv.lock') }}
+          path: ~/.local/share/uv/tools
+          key: uv-tools-${{ runner.os }}-${{ hashFiles('pyproject.toml', '**/uv.lock') }}
           restore-keys: |
-            uv-${{ runner.os }}-${{ needs.generate-matrix.outputs.python-version }}-
+            uv-tools-${{ runner.os }}-
 
-      - name: 🚀 Run nox -s ${{ matrix.session }}
-        run: nox -s "${{ matrix.session }}"
+      - name: 🚀 Run Nox Session
+        run: uv tool run nox -- -s "${{ matrix.session }}"
 
 
 #############################################
