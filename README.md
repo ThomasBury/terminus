@@ -4,10 +4,10 @@
 [![CI](https://github.com/thomasbury/terminus/actions/workflows/ci.yml/badge.svg)](https://github.com/thomasbury/terminus/actions/workflows/ci.yml)
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/bsatom/terminus.svg)](https://hub.docker.com/r/bsatom/terminus)
-[![Docker Image Size](https://img.shields.io/docker/image-size/bsatom/terminus/latest)](https://hub.docker.com/r/bsatom/terminus)
+[![Docker Image Size](https://img.shields.io/docker/image-size/bsatom/terminus/latest)](https://hub.docker.com/r/bsatom /terminus)
 
 
-A minuscule terminology service powered by LLMs, designed to extract, validate, and enrich financial definitions from Wikipedia—perfectly packaged for developers and AI enthusiasts.
+A minuscule terminology service, powered by LLMs, designed to extract, validate, and enrich user-defined topic definitions sourced from Wikipedia—perfectly packaged for developers and AI enthusiasts.
 
 # TL;DR
 
