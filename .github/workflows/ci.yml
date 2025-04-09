@@ -7,11 +7,11 @@ on:
     branches: [main]
 
 permissions:
-  contents: read  # Minimal permissions required
+  contents: read  # Minimal required permissions
 
 jobs:
   generate-matrix:
-    name: 🧮 Generate Nox Session Matrix
+    name: 🧮 Generate Nox Sessions Matrix
     runs-on: ubuntu-latest
     outputs:
       sessions: ${{ steps.set-matrix.outputs.sessions }}
@@ -42,49 +42,43 @@ jobs:
               sys.exit(1)
           "
 
+      - name: 🐍 Setup Python ${{ steps.get-python-version.outputs.version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+
       - name: 📦 Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: 🔧 Install nox via uv tool
-        run: uv tool install nox
+      - name: 📦 Install nox (system-wide)
+        run: uv pip install --system nox
 
-      - name: 🧠 Cache uv tools (nox, etc.)
+      - name: 🧠 Cache uv cache
         uses: actions/cache@v4
         with:
-          path: ~/.local/share/uv/tools
-          key: uv-tools-${{ runner.os }}-${{ hashFiles('pyproject.toml', '**/uv.lock') }}
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ steps.get-python-version.outputs.version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            uv-tools-${{ runner.os }}-
-
-    #   - name: 🔍 Generate Nox Sessions JSON
-    #     id: set-matrix
-    #     run: |
-    #       echo "sessions=$(uv tool run nox -- --json -l | jq -c '[.[].session]')" >> $GITHUB_OUTPUT
+            uv-${{ runner.os }}-${{ steps.get-python-version.outputs.version }}-
 
       - name: 🔍 Generate Nox Sessions JSON
         id: set-matrix
         run: |
-          echo "🔎 Running: uv tool run nox -- --json -l"
-          RAW_JSON=$(uv tool run nox -- --json -l)
-                
-          echo "🔍 Raw Nox output:"
-          echo "$RAW_JSON"
-                
+          RAW_JSON=$(nox --json -l)
+          echo "🔍 Raw Nox output: $RAW_JSON"
+
           SESSIONS=$(echo "$RAW_JSON" | jq -c '[.[].session]')
-                
           echo "📦 Extracted sessions: $SESSIONS"
-                
+
           if [ -z "$SESSIONS" ] || [ "$SESSIONS" == "[]" ]; then
-            echo "No Nox sessions detected. Exiting..." >&2
+            echo "❌ No Nox sessions detected. Exiting..." >&2
             exit 1
           fi
-                
+
           echo "sessions=$SESSIONS" >> $GITHUB_OUTPUT
-              
-              
 
   run-nox-sessions:
-    name: ✅ Run ${{ matrix.session }} via uv tool
+    name: ✅ Run Nox session ${{ matrix.session }}
     needs: [generate-matrix]
     runs-on: ubuntu-latest
     strategy:
@@ -104,19 +98,19 @@ jobs:
       - name: 📦 Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: 🔧 Install nox via uv tool
-        run: uv tool install nox
+      - name: 📦 Install nox (system-wide)
+        run: uv pip install --system nox
 
-      - name: 🧠 Restore uv tools cache
+      - name: 🧠 Restore uv cache
         uses: actions/cache@v4
         with:
-          path: ~/.local/share/uv/tools
-          key: uv-tools-${{ runner.os }}-${{ hashFiles('pyproject.toml', '**/uv.lock') }}
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ needs.generate-matrix.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            uv-tools-${{ runner.os }}-
+            uv-${{ runner.os }}-${{ needs.generate-matrix.outputs.python-version }}-
 
       - name: 🚀 Run Nox Session
-        run: uv tool run nox -- -s "${{ matrix.session }}"
+        run: nox -s "${{ matrix.session }}"
 
 
 #############################################
