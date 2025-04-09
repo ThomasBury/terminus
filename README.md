@@ -1,8 +1,13 @@
 # AI-Powered Terminology Service
 
-[![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![Python Version](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-3130/)
+[![CI](https://github.com/thomasbury/terminus/actions/workflows/ci.yml/badge.svg)](https://github.com/thomasbury/terminus/actions/workflows/ci.yml)
 
-A minuscule term
+[![Docker Pulls](https://img.shields.io/docker/pulls/bsatom/terminus.svg)](https://hub.docker.com/r/bsatom/terminus)
+[![Docker Image Size](https://img.shields.io/docker/image-size/bsatom/terminus/latest)](https://hub.docker.com/r/bsatom/terminus)
+
+
+A minuscule terminology service powered by LLMs, designed to extract, validate, and enrich financial definitions from Wikipedia—perfectly packaged for developers and AI enthusiasts.
 
 # TL;DR
 
