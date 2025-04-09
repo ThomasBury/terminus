@@ -75,8 +75,16 @@ jobs:
       - name: 📦 Install uv and nox
         uses: astral-sh/setup-uv@v5
 
-      - name: 🔧 Install Nox
-        run: uv pip install --system nox
+    #   - name: 🔧 Install Nox
+    #     run: uv pip install --system nox
+
+      - name: 📦 Create virtualenv & install nox
+        run: |
+          uv venv .venv-ci  # Create isolated virtual environment for CI
+          .venv-ci/bin/uv pip install nox  # Install nox using uv-managed pip
+
+      - name: 🧪 Run Nox Session
+        run: .venv-ci/bin/nox -s "${{ matrix.session }}"
 
       - name: 🧠 Restore uv Cache
         uses: actions/cache@v4
