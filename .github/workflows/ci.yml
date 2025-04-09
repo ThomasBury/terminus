@@ -56,10 +56,22 @@ jobs:
           restore-keys: |
             uv-tools-${{ runner.os }}-
 
+    #   - name: 🔍 Generate Nox Sessions JSON
+    #     id: set-matrix
+    #     run: |
+    #       echo "sessions=$(uv tool run nox -- --json -l | jq -c '[.[].session]')" >> $GITHUB_OUTPUT
+
       - name: 🔍 Generate Nox Sessions JSON
         id: set-matrix
         run: |
-          echo "sessions=$(uv tool run nox -- --json -l | jq -c '[.[].session]')" >> $GITHUB_OUTPUT
+          SESSIONS=$(uv tool run nox -- --json -l | jq -c '[.[].session]')
+          echo "Detected sessions: $SESSIONS"
+          if [ -z "$SESSIONS" ] || [ "$SESSIONS" == "[]" ]; then
+            echo "No Nox sessions detected, exiting..." >&2
+            exit 1
+          fi
+          echo "sessions=$SESSIONS" >> $GITHUB_OUTPUT
+        
 
   run-nox-sessions:
     name: ✅ Run ${{ matrix.session }} via uv tool
