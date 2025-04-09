@@ -32,6 +32,9 @@ build-backend = "hatchling.build"
 packages = ["src/terminus"]
 
 [dependency-groups]
+ci = [
+    "nox>=2025.2.9",
+]
 dev = [
     "pyragify>=0.1.0",
 ]

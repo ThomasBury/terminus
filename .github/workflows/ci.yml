@@ -1,93 +1,198 @@
+
 name: Terminus CI/CD
 
 on:
   push:
     branches: [main]
-    # trigger on tags for versioned releases
-    # tags: ['v*.*.*']
   pull_request:
     branches: [main]
 
 permissions:
-  contents: read
-
-env:
-  PYTHON_VERSION: '3.13'
+  contents: read  # Minimum required
 
 jobs:
-  lint-and-test:
-    name: Lint & Test
+  generate-matrix:
+    name: 🧮 Generate Nox Sessions Matrix
     runs-on: ubuntu-latest
+    outputs:
+      sessions: ${{ steps.set-matrix.outputs.sessions }}
+      python-version: ${{ steps.get-python-version.outputs.version }}
+
     steps:
       - name: ⬇️ Checkout Code
         uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
+      - name: 🐍 Extract Python Version from pyproject.toml
+        id: get-python-version
+        run: |
+          python -c "
+          import tomllib, re, sys, os
+          try:
+              with open('pyproject.toml', 'rb') as f:
+                  data = tomllib.load(f)
+              spec = data['project']['requires-python']
+              match = re.search(r'[>=~=]\s*(\d+\.\d+)', spec)
+              version = match.group(1) if match else None
+              if not version:
+                  raise ValueError(f'Could not extract Python version from: {spec}')
+              print(f'📌 Python version: {version}')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                  print(f'version={version}', file=fh)
+          except Exception as e:
+              print(f'Error extracting Python version: {e}', file=sys.stderr)
+              sys.exit(1)
+          "
 
-      - name: 📦 Install uv
+      - name: 📦 Install uv and nox
         uses: astral-sh/setup-uv@v5
 
-      - name: 🧠 Restore uv cache
-        id: cache-uv
+      - name: 🔧 Install Nox
+        run: uv pip install --system nox
+
+      - name: 🧠 Generate Nox Sessions JSON
+        id: set-matrix
+        run: |
+          echo "sessions=$(nox --json -l | jq -c '[.[].session]')" >> $GITHUB_OUTPUT
+
+  run-nox-sessions:
+    name: ✅ Run ${{ matrix.session }} via Nox
+    needs: [generate-matrix]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        session: ${{ fromJson(needs.generate-matrix.outputs.sessions) }}
+
+    steps:
+      - name: ⬇️ Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python ${{ needs.generate-matrix.outputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ needs.generate-matrix.outputs.python-version }}
+
+      - name: 📦 Install uv and nox
+        uses: astral-sh/setup-uv@v5
+
+      - name: 🔧 Install Nox
+        run: uv pip install --system nox
+
+      - name: 🧠 Restore uv Cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: uv-${{ runner.os }}-${{ needs.generate-matrix.outputs.python-version }}-${{ hashFiles('pyproject.toml', '**/uv.lock') }}
           restore-keys: |
-            uv-${{ runner.os }}-
+            uv-${{ runner.os }}-${{ needs.generate-matrix.outputs.python-version }}-
 
-      - name: 📦 Install dependencies (lint)
-        run: uv sync --group lint
+      - name: 🚀 Run nox -s ${{ matrix.session }}
+        run: nox -s "${{ matrix.session }}"
 
-      - name: ✨ Lint with Ruff
-        run: |
-          uv run ruff check src
-          uv run ruff format --check src
-    # No tests yet
-    #   - name: ✅ Run tests
-    #     run: uv run pytest tests/
-    #     continue-on-error: true  # Make strict if critical
 
-  build-and-push-docker:
-    name: Build & Push Docker Image
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: lint-and-test
-    permissions:
-      contents: read
+#############################################
+# The simpler version of the CI/CD pipeline
+# is commented out below. Uncomment it if you
+# want to use it instead of the matrix-based
+# approach.
+# This version is less flexible and does not
+# support multiple Python versions or sessions.
+# It is suitable for simpler projects or
+# workflows where you only need to run a single
+# session with a specific Python version.
+#############################################
 
-    steps:
-      - name: ⬇️ Checkout Code
-        uses: actions/checkout@v4
 
-      - name: 🐳 Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+# name: Terminus CI/CD
 
-      - name: 🏷️ Docker Metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/terminus
-          tags: |
-            type=sha,format=short
-            type=raw,value=latest
+# on:
+#   push:
+#     branches: [main]
+#     # trigger on tags for versioned releases
+#     # tags: ['v*.*.*']
+#   pull_request:
+#     branches: [main]
 
-      - name: 🔑 Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+# permissions:
+#   contents: read
 
-      - name: 🏗️ Build and Push Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+# env:
+#   PYTHON_VERSION: '3.13'
+
+# jobs:
+#   lint-and-test:
+#     name: Lint & Test
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: ⬇️ Checkout Code
+#         uses: actions/checkout@v4
+
+#       - name: 🐍 Setup Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: ${{ env.PYTHON_VERSION }}
+
+#       - name: 📦 Install uv
+#         uses: astral-sh/setup-uv@v5
+
+#       - name: 🧠 Restore uv cache
+#         id: cache-uv
+#         uses: actions/cache@v4
+#         with:
+#           path: ~/.cache/uv
+#           key: uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+#           restore-keys: |
+#             uv-${{ runner.os }}-
+
+#       - name: 📦 Install dependencies (lint)
+#         run: uv sync --group lint
+
+#       - name: ✨ Lint with Ruff
+#         run: |
+#           uv run ruff check src
+#           uv run ruff format --check src
+#     # No tests yet
+#     #   - name: ✅ Run tests
+#     #     run: uv run pytest tests/
+#     #     continue-on-error: true  # Make strict if critical
+
+#   build-and-push-docker:
+#     name: Build & Push Docker Image
+#     runs-on: ubuntu-latest
+#     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+#     needs: lint-and-test
+#     permissions:
+#       contents: read
+
+#     steps:
+#       - name: ⬇️ Checkout Code
+#         uses: actions/checkout@v4
+
+#       - name: 🐳 Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
+
+#       - name: 🏷️ Docker Metadata
+#         id: meta
+#         uses: docker/metadata-action@v5
+#         with:
+#           images: ${{ secrets.DOCKERHUB_USERNAME }}/terminus
+#           tags: |
+#             type=sha,format=short
+#             type=raw,value=latest
+
+#       - name: 🔑 Log in to Docker Hub
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+#       - name: 🏗️ Build and Push Docker Image
+#         uses: docker/build-push-action@v6
+#         with:
+#           context: .
+#           push: true
+#           tags: ${{ steps.meta.outputs.tags }}
+#           labels: ${{ steps.meta.outputs.labels }}
+#           cache-from: type=gha
+#           cache-to: type=gha,mode=max
 
