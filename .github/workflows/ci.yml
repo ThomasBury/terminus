@@ -64,14 +64,24 @@ jobs:
       - name: 🔍 Generate Nox Sessions JSON
         id: set-matrix
         run: |
-          SESSIONS=$(uv tool run nox -- --json -l | jq -c '[.[].session]')
-          echo "Detected sessions: $SESSIONS"
+          echo "🔎 Running: uv tool run nox -- --json -l"
+          RAW_JSON=$(uv tool run nox -- --json -l)
+                
+          echo "🔍 Raw Nox output:"
+          echo "$RAW_JSON"
+                
+          SESSIONS=$(echo "$RAW_JSON" | jq -c '[.[].session]')
+                
+          echo "📦 Extracted sessions: $SESSIONS"
+                
           if [ -z "$SESSIONS" ] || [ "$SESSIONS" == "[]" ]; then
-            echo "No Nox sessions detected, exiting..." >&2
+            echo "No Nox sessions detected. Exiting..." >&2
             exit 1
           fi
+                
           echo "sessions=$SESSIONS" >> $GITHUB_OUTPUT
-        
+              
+              
 
   run-nox-sessions:
     name: ✅ Run ${{ matrix.session }} via uv tool
